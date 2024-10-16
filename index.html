@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yatzy Web</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <input type="number" id="columnCount" placeholder="Enter number of players" min="2" />
+        <button id="expandButton">Play</button>
+    </div>
+    <div class="table-container" id="tableContainer" style="display: none;">
+        <table id="dynamicTable">
+            <thead>
+                <tr id="headerRow">
+                    <!-- Header cells will be generated here -->
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be generated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Dices -->
+    <div class="dice-grid">
+        <img id="dice1" src="dice_unknown.png" alt="Dice" />
+        <img id="dice2" src="dice_unknown.png" alt="Dice" />
+        <img id="dice3" src="dice_unknown.png" alt="Dice" />
+        <img id="dice4" src="dice_unknown.png" alt="Dice" />
+        <img id="dice5" src="dice_unknown.png" alt="Dice" />
+    </div>
+    <button id="rollDice">Roll Dice</button>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+
