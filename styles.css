@@ -44,8 +44,8 @@ table {
     }
 
     #rollDice { 
-        height: 40px;
-        width: 140px;
+        height: 80px;
+        width: 360px;
         font-size: 20px;
     }
 }

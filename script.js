@@ -88,7 +88,7 @@ async function startGame(playerCount) {
     let currentTurn = 1;
 
     // each player is an element here
-    const scoreBoard = new Array(playerCount).fill(0).map(() => new Array(11).fill(0));
+    const scoreBoard = new Array(playerCount).fill(0).map(() => new Array(11).fill(-1));
 
     selectedDice = [false, false, false, false, false]; // Global variable to store selection state
 
@@ -96,6 +96,9 @@ async function startGame(playerCount) {
     let gameActive = true;
     
     while (gameActive) {
+        const rollDiceButton = document.getElementById('rollDice');
+        rollDiceButton.style.visibility = 'visible';
+
         document.getElementById(`p${currentTurn}`).style.backgroundColor = 'gray';
         let roll = [];
 
@@ -112,7 +115,11 @@ async function startGame(playerCount) {
 
         for (let i = 0; i < 3; i++) {
             roll = await playerRollDice(roll, currentTurn);
-
+            if (i === 2) {
+                const rollDiceButton = document.getElementById('rollDice');
+                rollDiceButton.style.visibility = 'hidden';
+            }
+            
             console.log(`Player ${currentTurn} rolled:`, roll);
        
             // Add click event listeners to each die
@@ -138,11 +145,10 @@ async function startGame(playerCount) {
             displayRoll(roll);
 
             // update corresponding score
-            let scores = displayCategories(currentTurn, roll);
+            let scores = displayCategories(currentTurn, roll, scoreBoard);
 
             let catSelection = await playerSelectCat(currentTurn, scores);
 
-            
             const catElements = [];
 
             for (let n = 0; n <= 10; n++) {
@@ -154,6 +160,7 @@ async function startGame(playerCount) {
 
             if (catSelection) {
                 let row = catSelection.id.split('_')[1];
+                catSelection.style.backgroundColor = 'lightgray';
                 scoreBoard[currentTurn-1][row] = parseInt(catSelection.innerText, 10);
                 updateScore(scoreBoard);
                 console.log(scoreBoard);
@@ -163,10 +170,20 @@ async function startGame(playerCount) {
             }
         }        
 
+
+        console.log(scoreBoard);
+
         // Example logic to end the game (update as needed)
-        //if (someConditionToEndGame) {
-            //gameActive = false; // Set to false to exit the loop
-        //}
+        let containsNegative = false; // game still ongoing
+        for (let i = 0; i < initialRows; i++) {
+            if (scoreBoard[playerCount-1][i] === -1) {
+                containsNegative = true;
+                break;
+            }
+        }
+        if (!containsNegative) {
+            gameActive = false; // Set to false to exit the loop
+        }
 
         document.getElementById(`p${currentTurn}`).style.backgroundColor = '';
         currentTurn = (currentTurn % playerCount) + 1; // Move to the next player
@@ -174,19 +191,26 @@ async function startGame(playerCount) {
     }
 
     console.log('Game has ended.');
+
+    document.getElementById('result').innerText = "GAME OVER!";
 }
 
 function updateScore(scoreBoard) {
-    console.log('called');
     for (let i = 0; i < scoreBoard.length; i++) {
-        document.getElementById(`c${i+1}_11`).innerText = scoreBoard[i].reduce((a, b) => a + b, 0);
+        let cell = document.getElementById(`c${i+1}_11`);
+        let sum = 0;
+        for (val of scoreBoard[i]) {
+            if (val > 0) {
+                sum += val; 
+            }
+        }
+        cell.innerText = sum;
     }
 }
 
 
 function playerSelectCat(player, scores) {
-    return new Promise((resolve) => {
-        const catElements = [];
+    return new Promise((resolve) => { const catElements = [];
 
         for (let n = 0; n <= 10; n++) {
             catElements.push(document.getElementById(`c${player}_${n}`));
@@ -201,15 +225,15 @@ function playerSelectCat(player, scores) {
             resolve(false);
         });
         catElements.forEach((cat, index) => {
-            cat.addEventListener('click', function onClick() {
-
-                resolve(cat);
-
-            }, { once: true }); // 'once' option automatically removes listener after the first invocation
-        });
+            if (!cat.value) {
+                cat.addEventListener('click', function onClick() {
+                    cat.value = 1;
+                    resolve(cat);
+                });
+            } 
+        }, { once: true }); // 'once' option automatically removes listener after the first invocation
     });
 }
-
 
 function displayRoll(roll) {
     console.log(`roll: ${roll}`);
@@ -219,7 +243,7 @@ function displayRoll(roll) {
 }
 
 
-function displayCategories(player, roll) {
+function displayCategories(player, roll, scoreBoard) {
     // Ensure the input is a valid array of dice rolls
     if (!Array.isArray(roll) || roll.length !== 5) {
         throw new Error('Input must be an array of 5 dice rolls.');
@@ -268,7 +292,8 @@ function displayCategories(player, roll) {
     //if ((counts[1] && counts[2] && counts[3] && counts[4]) || (counts[2] && counts[3] && counts[4] && counts[5])) {
         //scores.Straight = 30; // Small Straight
     //} 
-    if (counts[1] && counts[2] && counts[3] && counts[4] && counts[5]) {
+    if ((counts[1] && counts[2] && counts[3] && counts[4] && counts[5])
+      || (counts[2] && counts[3] && counts[4] && counts[5] && counts[6])){
         scores.Straight = 40; // Large Straight
     }
 
@@ -294,10 +319,11 @@ function displayCategories(player, roll) {
     let cat = 0;
     orderedKeys.forEach(key => {
         // Append the value as innerText to the tag with the specified ID
-        const cellId = `c${player}_${cat}`; // Construct the cell ID
-        const cell = document.getElementById(cellId); // Get the cell element
-
-        cell.innerText = scores[key]; // Set the innerText to the score value
+        const cellId = `c${player}_${cat}`; // Construct the cell Index
+        const cell = document.getElementById(cellId); // Get the cell elements
+        if (scoreBoard[player-1][cat] === -1) {
+            cell.innerText = scores[key]; // Set the innerText to the score value
+        }
         cat++;
     });   
 
@@ -362,4 +388,3 @@ expandButton.addEventListener('click', () => {
     expandButton.style.display = 'none';
 });
 
-createTable(12, 3);
