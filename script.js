@@ -53,7 +53,8 @@ function createTable(rows, cols) {
             } else if (j === 0 ) {
                 cell.innerText = categories[i];
             } else {
-                cell.innerText = '0';
+                // default text
+                cell.innerText = '';
                 cell.setAttribute("id", `c${j}_${i}`);
             }
         }
@@ -110,8 +111,9 @@ async function startGame(playerCount) {
 
         diceElements.forEach((die, index) => {
             die.classList.remove('selected'); // Remove red border
-            console.log(selectedDice);
         });
+
+        console.log('Reset', selectedDice);
 
         for (let i = 0; i < 3; i++) {
             roll = await playerRollDice(roll, currentTurn);
@@ -120,7 +122,7 @@ async function startGame(playerCount) {
                 rollDiceButton.style.visibility = 'hidden';
             }
             
-            console.log(`Player ${currentTurn} rolled:`, roll);
+            console.log(`Player ${currentTurn} hand:`, roll);
        
             // Add click event listeners to each die
             if (needSelectionListener) {
@@ -136,7 +138,7 @@ async function startGame(playerCount) {
                         } else {
                             die.classList.remove('selected'); // Remove red border
                         }
-                        console.log(selectedDice);
+                        console.log('Update', selectedDice);
                     });
                 });
             }
@@ -162,6 +164,11 @@ async function startGame(playerCount) {
                 let row = catSelection.id.split('_')[1];
                 catSelection.style.backgroundColor = 'lightgray';
                 scoreBoard[currentTurn-1][row] = parseInt(catSelection.innerText, 10);
+                catElements.forEach((cat, index) => {
+                    if (cat.value !== 1) {
+                        cat.innerText = '';
+                    }
+                });
                 updateScore(scoreBoard);
                 console.log(scoreBoard);
                 break;
@@ -169,9 +176,6 @@ async function startGame(playerCount) {
                 continue;
             }
         }        
-
-
-        console.log(scoreBoard);
 
         // Example logic to end the game (update as needed)
         let containsNegative = false; // game still ongoing
@@ -236,7 +240,6 @@ function playerSelectCat(player, scores) {
 }
 
 function displayRoll(roll) {
-    console.log(`roll: ${roll}`);
     for (let i = 0; i < roll.length; i++) {
         document.getElementById(`dice${i+1}`).src = `./dice_${roll[i]}.svg`;
     }
@@ -348,7 +351,7 @@ function playerRollDice(current, player) {
                 isRolling = false; // Allow future rolls
 
                 let newRoll = generateRandomNumbers(5, 1, 6);
-
+                console.log(`Player ${player} rolled: ${newRoll}`);
                 for (let i = 0; i < selectedDice.length; i++) {
                     if (selectedDice[i]) {
                         newRoll[i] = current[i];
