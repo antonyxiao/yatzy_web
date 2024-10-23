@@ -53,7 +53,8 @@ function createTable(rows, cols) {
             } else if (j === 0 ) {
                 cell.innerText = categories[i];
             } else {
-                cell.innerText = '0';
+                // start with empty cells
+                cell.innerText = '';
                 cell.setAttribute("id", `c${j}_${i}`);
             }
         }
@@ -82,7 +83,7 @@ function createTable(rows, cols) {
 
 async function startGame(playerCount) {
     console.log(`starting game with ${playerCount} players`);
-    console.log(`selected dies ${selectedDice}`);
+    console.log(`selected dice ${selectedDice}`);
 
     // default player 1 starts
     let currentTurn = 1;
@@ -90,13 +91,15 @@ async function startGame(playerCount) {
     // each player is an element here
     const scoreBoard = new Array(playerCount).fill(0).map(() => new Array(11).fill(-1));
 
-    selectedDice = [false, false, false, false, false]; // Global variable to store selection state
+    // no dice selected at first
+    selectedDice = [false, false, false, false, false];
 
     // Example loop that checks if the game should continue
     let gameActive = true;
     
+    const rollDiceButton = document.getElementById('rollDice');
+    
     while (gameActive) {
-        const rollDiceButton = document.getElementById('rollDice');
         rollDiceButton.style.visibility = 'visible';
 
         document.getElementById(`p${currentTurn}`).style.backgroundColor = 'gray';
@@ -104,25 +107,34 @@ async function startGame(playerCount) {
 
         selectedDice = [false, false, false, false, false]; // Global variable to store selection state
 
+        // begin with dice having question mark image
         for (let i = 1; i < 6; i++) {
             document.getElementById(`dice${i}`).src = './dice_unknown.png';
         }
 
+        // no dice selected
         diceElements.forEach((die, index) => {
             die.classList.remove('selected'); // Remove red border
-            console.log(selectedDice);
         });
 
+
+        let playerRolled = false;
+
         for (let i = 0; i < 3; i++) {
-            roll = await playerRollDice(roll, currentTurn);
+
+            // allows 3 rolls
+            roll = await playerRollDice(roll, currentTurn, playerRolled);
+            
+            // 3rd pass hide roll button
             if (i === 2) {
                 const rollDiceButton = document.getElementById('rollDice');
                 rollDiceButton.style.visibility = 'hidden';
             }
-            
+
             console.log(`Player ${currentTurn} rolled:`, roll);
        
             // Add click event listeners to each die
+            // player can lock dice
             if (needSelectionListener) {
                 needSelectionListener = false;
                 diceElements.forEach((die, index) => {
@@ -147,6 +159,11 @@ async function startGame(playerCount) {
             // update corresponding score
             let scores = displayCategories(currentTurn, roll, scoreBoard);
 
+            // 1st pass - select or roll again
+            // 2nd pass - select or roll again
+            // 3rd pass - select only
+            // player selects score -> returns category selected
+            // player rolls again -> return false
             let catSelection = await playerSelectCat(currentTurn, scores);
 
             const catElements = [];
@@ -154,18 +171,29 @@ async function startGame(playerCount) {
             for (let n = 0; n <= 10; n++) {
                 catElements.push(document.getElementById(`c${currentTurn}_${n}`));
             }
+
             catElements.forEach((cat, index) => {
-                cat.removeEventListener('click', function onClick() {});
+                if (cat.listener) {
+                    cat.removeEventListener('click', cat.listener);
+                    delete cat.listener; // Clean up the listener reference
+                }
             });
 
             if (catSelection) {
                 let row = catSelection.id.split('_')[1];
                 catSelection.style.backgroundColor = 'lightgray';
                 scoreBoard[currentTurn-1][row] = parseInt(catSelection.innerText, 10);
+                catElements.forEach((cat, index) => {
+                    if (cat.value !== 1) {
+                        cat.innerText = '';
+                    }
+                });
                 updateScore(scoreBoard);
                 console.log(scoreBoard);
                 break;
             } else {
+                // player chose to roll again
+                playerRolled = true;
                 continue;
             }
         }        
@@ -189,34 +217,60 @@ async function startGame(playerCount) {
         currentTurn = (currentTurn % playerCount) + 1; // Move to the next player
         document.getElementById(`p${currentTurn}`).style.backgroundColor = 'gray';
     }
-
+        
+    // game over
     console.log('Game has ended.');
+    rollDiceButton.style.display = 'none';
 
-    document.getElementById('result').innerText = "GAME OVER!";
+    let totalScores = [];
+
+    for (let i = 0; i < playerCount; i++) {
+        totalScores.push(getPlayerTotalScore(scoreBoard, i)); 
+    }
+
+    console.log(totalScores);
+    let winner = totalScores.indexOf(Math.max(...totalScores)) + 1;
+
+    document.getElementById(`c${winner}_11`).style.backgroundColor = 'darkseagreen';
+
+    document.getElementById('result').innerText = `Player ${winner} won!`;
 }
+
+function getPlayerTotalScore(scoreBoard, player) {
+    let sum = 0;
+    for (val of scoreBoard[player]) {
+        if (val > 0) {
+            sum += val; 
+        }
+    }
+    return sum;
+}
+
 
 function updateScore(scoreBoard) {
     for (let i = 0; i < scoreBoard.length; i++) {
         let cell = document.getElementById(`c${i+1}_11`);
-        let sum = 0;
-        for (val of scoreBoard[i]) {
-            if (val > 0) {
-                sum += val; 
-            }
-        }
-        cell.innerText = sum;
+        cell.innerText = getPlayerTotalScore(scoreBoard, i);
     }
 }
 
+function onCatClick(cat, resolve) {
+    console.log(`category clicked: ${cat.value} points`);
+    cat.value = 1;
+    resolve(cat);
+}
 
 function playerSelectCat(player, scores) {
-    return new Promise((resolve) => { const catElements = [];
+    return new Promise((resolve) => { 
+        const catElements = [];
 
         for (let n = 0; n <= 10; n++) {
             catElements.push(document.getElementById(`c${player}_${n}`));
         }
 
         const rollDiceButton = document.getElementById('rollDice');
+
+        // player decides to roll dice instead of selecting points
         rollDiceButton.addEventListener('click', function onClick() {
 
             // Remove the event listener after the first click
@@ -224,12 +278,15 @@ function playerSelectCat(player, scores) {
 
             resolve(false);
         });
+
         catElements.forEach((cat, index) => {
             if (!cat.value) {
-                cat.addEventListener('click', function onClick() {
-                    cat.value = 1;
-                    resolve(cat);
-                });
+                console.log('cat event listener added', cat.value);
+                const listener = onCatClick.bind(null, cat, resolve); // Binding parameters
+                cat.addEventListener('click', listener, { once: true });
+
+                // Store the reference of the listener function for later removal
+                cat.listener = listener;
             } 
         }, { once: true }); // 'once' option automatically removes listener after the first invocation
     });
@@ -237,6 +294,7 @@ function playerSelectCat(player, scores) {
 
 function displayRoll(roll) {
     console.log(`roll: ${roll}`);
+
     for (let i = 0; i < roll.length; i++) {
         document.getElementById(`dice${i+1}`).src = `./dice_${roll[i]}.svg`;
     }
@@ -331,12 +389,30 @@ function displayCategories(player, roll, scoreBoard) {
     return scores;
 }
 
+function rollWithSelectedDice(current) {
+    let newRoll = generateRandomNumbers(5, 1, 6);
+
+    for (let i = 0; i < selectedDice.length; i++) {
+        if (selectedDice[i]) {
+            newRoll[i] = current[i];
+        }
+    }
+
+    return newRoll;
+}
 
 let isRolling = false; // To prevent multiple clicks
 
-function playerRollDice(current, player) {
+function playerRollDice(current, player, playerRolled) {
+    const rollDiceButton = document.getElementById('rollDice');
+    if (playerRolled) {
+        return new Promise((resolve) => {
+            const newRoll = rollWithSelectedDice(current);
+            resolve(newRoll);
+        }, { once: true });
+    }
+
     return new Promise((resolve) => {
-        const rollDiceButton = document.getElementById('rollDice');
 
         if (!isRolling) {
             isRolling = true; // Prevent further clicks
@@ -346,14 +422,8 @@ function playerRollDice(current, player) {
                 // Remove the event listener after the first click
                 rollDiceButton.removeEventListener('click', onClick);
                 isRolling = false; // Allow future rolls
-
-                let newRoll = generateRandomNumbers(5, 1, 6);
-
-                for (let i = 0; i < selectedDice.length; i++) {
-                    if (selectedDice[i]) {
-                        newRoll[i] = current[i];
-                    }
-                }
+                
+                const newRoll = rollWithSelectedDice(current);
 
                 resolve(newRoll);
 
